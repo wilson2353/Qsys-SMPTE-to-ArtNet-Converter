@@ -1,0 +1,465 @@
+-- SMPTE to Art-Net Plugin
+-- by Wilson Au-Yeung
+-- December 2025
+
+-- Information block for the plugin
+PluginInfo = {
+    Name = "SMPTE to ArtNet Converter",
+    Version = "1.1",
+    BuildVersion = "1.6.7.0",
+    Id = "4d02d40d-fa17-4c67-9c4f-a48c212d4cf4",
+    Author = "Wilson Au-Yeung", 
+    Description = "Convert SMPTE timecode as ArtNet Packets"
+}
+
+-- Define the color of the plugin object in the design
+function GetColor(props)
+  return { 0, 70, 155 }
+end
+
+-- The name that will initially display when dragged into a design
+function GetPrettyName(props)
+  return "SMPTE to Art-Net Converter\rv." .. PluginInfo.Version
+end
+
+-- Optional function used if plugin has multiple pages
+PageNames = { "" }  --List the pages within the plugin
+function GetPages(props)
+  local pages = {}
+  for ix,name in ipairs(PageNames) do
+    table.insert(pages, {name = PageNames[ix]})
+  end
+  return pages
+end
+
+-- Define User configurable Properties of the plugin
+function GetProperties()
+    local props = {}
+    table.insert(props, {
+      Name = "Debug Print",
+      Type = "enum",
+      Choices = {"None", "Tx/Rx", "Tx", "Rx", "Function Calls", "All"},
+      Value = "None"
+    })
+  return props
+end
+
+-- Defines the Controls used within the plugin
+function GetControls(props)
+  local ctrls = {}
+  ctrls = {
+    {
+      Name = "Start",
+      ControlType = "Button",
+      ButtonType = "Toggle",
+      Count = 1,
+      UserPin = false,
+      PinStyle = "Both"
+    },
+    {
+      Name = "Stop",
+      ControlType = "Button",
+      ButtonType = "Toggle",
+      Count = 1,
+      UserPin = false,
+      PinStyle = "Both"
+    },
+    {
+      Name = "tc_Hours",
+      ControlType = "Knob",
+      ControlUnit = "Integer",
+      Min = 0,
+      Max = 23,
+      Count = 1,
+      UserPin = false,
+      PinStyle = "Input"
+    },
+    {
+      Name = "tc_Minutes",
+      ControlType = "Knob",
+      ControlUnit = "Integer",
+      Min = 0,
+      Max = 59,
+      Count = 1,
+      UserPin = false,
+      PinStyle = "Input"
+    },
+    {
+      Name = "tc_Seconds",
+      ControlType = "Knob",
+      ControlUnit = "Integer",
+      Min = 0,
+      Max = 59,
+      Count = 1,
+      UserPin = false,
+      PinStyle = "Input"
+    },
+    {
+      Name = "tc_Frames",
+      ControlType = "Knob",
+      ControlUnit = "Float",
+      Min = 0,
+      Max = 30,
+      Count = 1,
+      UserPin = false,
+      PinStyle = "Input"
+    },
+    {
+      Name = "FrameRate",
+      ControlType = "Knob",
+      ControlUnit = "Integer",
+      Min = 0,
+      Max = 30,
+      Count = 1,
+      UserPin = false,
+      PinStyle = "Input"
+    },
+    {
+      Name = "DropFrame",
+      ControlType = "Button",
+      ButtonType = "Toggle",
+      Count = 1,
+      UserPin = false,
+      PinStyle = "Input"
+    },
+    {
+      Name = "TargetIP",
+      ControlType = "Text",
+      Count = 1,
+      UserPin = true,
+      PinStyle = "None"
+    },
+    {
+      Name = "TargetPort",
+      ControlType = "Knob",
+      ControlUnit = "Integer",
+      Min = 1,
+      Max = 65535,
+      Count = 1,
+      UserPin = true,
+      PinStyle = "None"
+    },
+  }
+  return ctrls
+end
+
+--Layout of controls and graphics for the plugin UI to display
+function GetControlLayout(props)
+  local layout = {}
+  local graphics = {}
+  local CurrentPage = PageNames[props["page_index"].Value]
+  if CurrentPage == "" then
+      -- Define Label and Background in Page
+      local graphic = {
+          {
+              Type = "GroupBox",
+              Color = {153,153,153},
+              StrokeWidth = 0,
+              CornorRadius = 0,
+              Position = {0,0},
+              Size = {450,240}
+          },
+          {
+              Type = "Label",
+              Text = "Start",
+              Size = {65,25},
+              Position = {122,30},
+              FontSize = 20,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Type = "Label",
+              Text = "Stop",
+              Size = {65,25},
+              Position = {255,30},
+              FontSize = 20,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Type = "Label",
+              Text = "Frame Rate (fps)",
+              Size = {96,16},
+              Position = {20,150},
+              FontSize = 12,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Type = "Label",
+              Text = "Hours",
+              Size = {64,16},
+              Position = {116,150},
+              FontSize = 12,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Type = "Label",
+              Text = "Minutes",
+              Size = {64,16},
+              Position = {180,150},
+              FontSize = 12,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Type = "Label",
+              Text = "Seconds",
+              Size = {64,16},
+              Position = {244,150},
+              FontSize = 12,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Type = "Label",
+              Text = "Frames",
+              Size = {64,16},
+              Position = {308, 150},
+              FontSize = 12,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Type = "Label",
+              Text = "Drop Frame",
+              Size = {70,16},
+              Position = {372,150},
+              FontSize = 12,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Type = "Label",
+              Text = "Target IP:",
+              Size = {105,25},
+              Position = {90,190},
+              FontSize = 16,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+      }
+      -- Place graphics using loop
+      for _,item in pairs(graphic) do
+          table.insert(graphics, {
+              Type = item.Type,
+              Position = item.Position,
+              Size = item.Size,
+              Text = item.Text,
+              TextSize = item.FontSize,
+              StrokeWidth = item.StrokeWidth,
+              CornerRadius = item.CornerRadius,
+              HTextAlign = item.HAlign,
+              VTextAlign = item.VAlign,
+          })
+      end
+      -- Define Controls in Page
+      local ctrl = {
+          {
+              Name = "Start",
+              PrettyName = "Start",
+              Style = "Button",
+              Position = {122,55},
+              Size = {65,30},
+              Color = {0,159,60},
+              OffColor = {0,75,22}
+          },
+          {
+              Name = "Stop",
+              PrettyName = "Stop",
+              Style = "Button",
+              Position = {255,55},
+              Size = {65,30},
+              Color = {223,0,36},
+              OffColor = {108,0,13}
+          },
+          {
+              Name = "tc_Hours",
+              PrettyName = "Hours",
+              Style = "Text",
+              Position = {124,114},
+              Size = {48,36},
+              Color = {110,198,241},
+              TextColor = {0,0,0},
+              Bold = true,
+              TextSize = 30,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Name = "tc_Minutes",
+              PrettyName = "Minutes",
+              Style = "Text",
+              Position = {187,114},
+              Size = {48,36},
+              Color = {110,198,241},
+              TextColor = {0,0,0},
+              Bold = true,
+              TextSize = 30,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Name = "tc_Seconds",
+              PrettyName = "Seconds",
+              Style = "Text",
+              Position = {251,114},
+              Size = {48,36},
+              Color = {110,198,241},
+              TextColor = {0,0,0},
+              Bold = true,
+              TextSize = 30,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Name = "tc_Frames",
+              PrettyName = "Frames",
+              Style = "Text",
+              Position = {315,114},
+              Size = {48,36},
+              Color = {110,198,241},
+              TextColor = {0,0,0},
+              Bold = true,
+              TextSize = 30,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Name = "FrameRate",
+              PrettyName = "FPS",
+              Style = "Text",
+              Position = {20,120},
+              Size = {96,24},
+              Color = {194,194,194},
+              TextColor = {0,0,0},
+              TextSize = 14,
+              TextBoxStyle = "Normal",
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+          {
+              Name = "DropFrame",
+              PrettyName = "Drop Frame",
+              Style = "Button",
+              Position = {381,120},
+              Size = {46,26},
+              Color = {239,156,0},
+              OffColor = {115,73,0}
+          },
+          {
+              Name = "TargetIP",
+              PrettyName = "IP Address",
+              Style = "Text",
+              Position = {195,190},
+              Size = {130,25},
+              Color = {255,255,255},
+              TextColor = {0,0,0},
+              TextSize = 18,
+              HAlign = "Center",
+              VAlign = "Center"
+          },
+      }
+      -- Place Controls using loop
+      for ix,item in pairs(ctrl) do
+          layout[string.format(item.Name,ix)] = {
+              PrettyName = item.PrettyName,
+              Style = item.Style,
+              Legend = item.Legend,
+              Position = item.Position,
+              Size = item.Size,
+              Color = item.Color,
+              OffColor = item.OffColor,
+              TextColor = item.TextColor,
+              TextFontSize = item.TextSize,
+              TextBoxStyle = item.TextBoxStyle,
+              HTextAlign = item.HAlign,
+              VTextAlign = item.VAlign,
+          }
+      end
+  end
+  return layout, graphics
+end
+
+--Start event based logic
+if Controls then
+  Socket = UdpSocket.New();
+  Socket:Open();
+  SocketTimer = Timer.New()
+  -- Reconnect UDP Socket every 10 seconds to keep socket alive
+  SocketTimer.EventHandler = function()
+    Socket:Close()
+    Socket:Open()
+  end
+  SocketTimer:Start(10) 
+  
+  -- Timecode Type Checker
+  function tc_type(fps, drop)
+    local fps = Controls.FrameRate.Value
+    local drop = Controls.DropFrame.Boolean
+    if fps == 24 then return 0                    -- Film 24fps
+    elseif fps == 25 then return 1                -- EBU 25fps
+    elseif fps == 29 and drop then return 2       -- DF 29.97fps (30FPS Drop Frame)
+    elseif fps == 30 and not drop then return 3   -- SMPTE 30fps
+    else return 3
+    end
+  end
+  
+  -- Construct Timecode Packet
+  function build_artnet_timecode(ttype)
+    -- Art-Net header: "Art-Net" + 0x00
+    local header = "Art-Net\0"
+    -- OpCode: OpTimeCode = 0x9700 (little-endian: low byte then high byte)
+    local op_low = 0x97
+    local op_high = 0x00
+    -- Protocol version (high then low) -> use 14 (0x000E). Protocol bytes: ProtVerHi, ProtVerLo
+    local prot_hi = 0x00
+    local prot_lo = 14
+    -- Sequence, Physical (set 0)
+    local seq = 0x00
+    local physical = 0x00
+    -- Timecode bytes: Frame, Seconds, Minutes, Hours, Type
+    -- Frame: 0..(fps-1)
+    local frame_byte = Controls.tc_Frames.Value & 0xFF
+    local seconds_byte = Controls.tc_Seconds.Value & 0xFF
+    local minutes_byte = Controls.tc_Minutes.Value & 0xFF
+    local hours_byte = Controls.tc_Hours.Value & 0xFF
+    local type_byte = ttype & 0xFF
+    local stop_frame = 0 & 0xFF
+    local stop_seconds = 0 & 0xFF
+    local stop_minutes = 0 & 0xFF
+    local stop_hours = 0 & 0xFF
+    local pkt = header .. string.char(op_high, op_low, prot_hi, prot_lo, seq, physical,
+      frame_byte, seconds_byte, minutes_byte, hours_byte, type_byte)
+    local stop_pkt = header .. string.char(op_high, op_low, prot_hi, prot_lo, seq, physical, 
+      stop_frame, stop_seconds, stop_minutes, stop_hours, type_byte)
+    local TARGET_IP = Controls.TargetIP.String
+  
+    if Controls.Start.Boolean then
+      Socket:Send(TARGET_IP, 6454, pkt)
+    else 
+      Socket:Send(TARGET_IP, 6454 , stop_pkt)
+    end 
+  end
+  
+  Controls.tc_Frames.EventHandler = function()
+    if Controls.Start.Boolean then 
+      build_artnet_timecode(tc_type(fps, drop))
+    end
+  end 
+  
+  Controls.Stop.EventHandler = function()
+    if Controls.Stop.Boolean then
+      Controls.Start.Boolean = false 
+      build_artnet_timecode(tc_type(fps, drop))
+    end
+  end
+  
+  Controls.Start.EventHandler = function()
+    if Controls.Start.Boolean then
+      Controls.Stop.Boolean = false
+    end
+  end
+end
