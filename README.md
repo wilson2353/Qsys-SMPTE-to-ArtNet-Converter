@@ -1,6 +1,6 @@
 # SMPTE To ArtNet Converter
 
-This module design for Q-SYS Core processors to convert SMPTE Timecode data into ArtNet Timecode packets and send them over ther network using UDP to mimic the behavior of a ArtNet Timecode node.
+This module design for Q-SYS Core processors to convert SMPTE Timecode data into ArtNet Timecode packets and send them over ther network using UDP to mimic the behaviour of a ArtNet Timecode Packet.
 
 ## Setup Plugin
 
@@ -12,5 +12,6 @@ This module design for Q-SYS Core processors to convert SMPTE Timecode data into
 6. Deploy the design to your Q-SYS Core processor.
 
 ### How to Use
+
 
 Configre the IP Address Text field as the ArtNet receiver device IP Address that you want to send the ArtNet Timecode packets to. ArtNet communication used port 6454 Only for any type of Art-Net packet. (Ref: www.Art-Net.info)
